@@ -5,22 +5,33 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "wrangler dev --port 8787 --ip 127.0.0.1 --local",
+    "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:check": "npm run build && wrangler deploy --dry-run",
+    "db:migrate": "node --env-file=.env.provision scripts/migrate.mjs",
+    "test:live": "node --env-file=.env.local --env-file=.env.provision --import tsx scripts/verify-live.mts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "lucide-react": "^1.51.0",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "pg": "^8.23.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "wrangler": "^4.147.0"
   }
 }

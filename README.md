@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# هبیت · Habeet
 
-## Getting Started
+یک وب‌اپ فارسی برای کنار گذاشتن عادت‌ها، با طراحی مخصوص موبایل و بدون قابلیت AI.
 
-First, run the development server:
+- ثبت چند عادت با دلیل شخصی، رنگ و نشانه
+- شمارش زنده روز، ساعت، دقیقه و ثانیه از زمان شروع
+- تیک خودکار بعد از هر ۲۴ ساعت کامل؛ نیمه‌شب به‌تنهایی تیک ایجاد نمی‌کند
+- ثبت اختیاری پایبندی امروز، مستقل از شمارنده
+- تقویم شمسی، هفته از شنبه و زمان‌بندی با ساعت تهران
+- شروع دوباره همراه با حفظ سابقه تلاش‌ها و بهترین مسیر
+- ثبت‌نام و ورود با ایمیل و رمز عبور، نام دلخواه و بازیابی رمز
+- فضای مستقل برای هر حساب در Supabase؛ ادامه روی چند دستگاه با همان حساب
+- استفاده اختیاری بدون حساب با ذخیره روی دستگاه
+- خروجی و بازیابی JSON؛ بازیابی، عادت‌های موجود را بازنویسی نمی‌کند
+- نصب روی صفحه اصلی گوشی و استفاده از نسخه ذخیره‌شده هنگام قطع اینترنت
 
-```bash
+## اجرای محلی
+
+Node.js 22.13 یا جدیدتر توصیه می‌شود.
+
+```sh
+npm ci
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+فقط `NEXT_PUBLIC_SUPABASE_URL` و `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` را در `.env.local` قرار بده. بدون این دو مقدار، حالت ذخیره روی دستگاه همچنان کار می‌کند.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+برای دیدن خروجی نهایی با همان موتور میزبانی Cloudflare، `npm run build` و سپس `npm start` را اجرا کن؛ پیش‌نمایش در `http://127.0.0.1:8787/` باز می‌شود.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## دیتابیس
 
-## Learn More
+پروژه از Supabase Auth و جدول `public.habits` استفاده می‌کند. سیاست‌های RLS دسترسی را به صاحب هر عادت محدود می‌کنند. کلید اصلی ترکیبی `user_id, id` اجازه می‌دهد یک فایل پشتیبان به حساب دیگری وارد شود. شماره `revision` از بازنویسی تغییرات دستگاه دیگر جلوگیری می‌کند. حذف در اپ به‌صورت soft delete است.
 
-To learn more about Next.js, take a look at the following resources:
+اطلاعات مدیریتی را فقط در فایل محلی و نادیده‌گرفته‌شده `.env.provision` قرار بده:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```dotenv
+HABEET_DATABASE_URL=postgresql://postgres.PROJECT_REF:PASSWORD@YOUR_SESSION_POOLER:5432/postgres
+HABEET_CA_CERT_PATH=supabase/certs/prod-ca-2021.crt
+HABEET_SUPABASE_SERVICE_KEY=YOUR_SERVICE_ROLE_KEY
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+آدرس دقیق Session pooler را از Supabase → Connect بخوان. گواهی CA در این مخزن از بخش Database → Settings → Download certificate دریافت شده است. اتصال دیتابیس با بررسی گواهی SSL انجام می‌شود.
 
-## Deploy on Vercel
+```sh
+npm run db:migrate
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+مهاجرت‌ها به‌ترتیب و در یک تراکنش اعمال می‌شوند و در `habeet_private.migrations` ثبت می‌شوند. اجرای دوباره، مهاجرت اجراشده را تکرار نمی‌کند. فایل SQL همچنین در `supabase/migrations/` برای اجرای مستقیم در SQL Editor موجود است.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## حساب‌های کاربران
+
+وقتی اتصال Supabase تنظیم باشد، صفحه شروع گزینه‌های ساخت حساب، ورود و استفاده مهمان را نشان می‌دهد. شناسه ورود، ایمیل کاربر است و نام نمایشی اختیاری است. رمز تازه حداقل ۸ کاراکتر دارد و تکرار آن بررسی می‌شود. رمزها توسط Supabase Auth مدیریت می‌شوند و در جدول عادت‌ها ذخیره نمی‌شوند.
+
+هر کاربر تنها عادت‌های خودش را می‌خواند و تغییر می‌دهد. هنگام خروج یا تغییر حساب، فرم‌ها و اطلاعات صفحه بازنشانی می‌شوند و نسخه محلی حساب قبلی پاک می‌شود. داده‌های سرور حفظ می‌شوند. خروج فقط همین دستگاه را از حساب خارج می‌کند؛ دستگاه‌های دیگر همان کاربر متصل می‌مانند. عادت‌های مهمان خودکار به حساب اضافه نمی‌شوند؛ انتقال از تنظیمات انجام می‌شود.
+
+برای ثبت‌نام عمومی و بازیابی رمز، در تنظیمات Authentication → SMTP یک سرویس ارسال ایمیل اختصاصی تنظیم کن و تأیید ایمیل را فعال نگه دار. سرویس پیش‌فرض Supabase محدود به ایمیل اعضای تیم پروژه است و برای کاربران عمومی مناسب نیست؛ [راهنمای رسمی SMTP](https://supabase.com/docs/guides/auth/auth-smtp) تنظیمات مورد نیاز را توضیح می‌دهد. کلید service role دسترسی به تنظیمات SMTP نمی‌دهد؛ تنظیم از داشبورد یا Management API با Access Token انجام می‌شود. اطلاعات SMTP و Access Token نباید در متغیرهای `NEXT_PUBLIC_` قرار بگیرند.
+
+پس از انتشار، آدرس عمومی و مسیر بازیابی را در Redirect URLs تنظیم کن و یک ثبت‌نام و بازیابی رمز با ایمیل واقعی بررسی کن. آزمون دو حساب تأییدشده، ارسال ایمیل به کاربران عمومی را اثبات نمی‌کند.
+
+## تأیید و تست
+
+```sh
+npm test
+npm run lint
+npm run build
+npm run deploy:check
+```
+
+تست‌ها مرز ۲۴ ساعت، شمارش پس از باز کردن دوباره، تقویم شمسی، شروع دوباره، فایل پشتیبان و سیاست‌های دیتابیس را بررسی می‌کنند. تست دیتابیس محلی روی PostgreSQL واقعی داخل PGlite اجرا می‌شود.
+
+برای بررسی اتصال واقعی Supabase:
+
+```sh
+node --env-file=.env.local --env-file=.env.provision --import tsx scripts/verify-live.mts
+```
+
+این دستور دو حساب آزمایشی موقت با نام دلخواه می‌سازد و ورود، ثبت عادت، جداسازی دسترسی‌ها و جلوگیری از تغییر داده حساب دیگر را بررسی می‌کند. همچنین ورود روی دو دستگاه و خروج تنها از یک دستگاه را آزمایش می‌کند، سپس هر دو حساب و داده‌های مربوط را پاک می‌کند. ایمیلی ارسال نمی‌شود.
+
+## انتشار روی Cloudflare
+
+Next.js خروجی ایستا را در `out/` می‌سازد و Cloudflare Workers آن را میزبانی می‌کند. دیتابیس و احراز هویت مستقیماً از مرورگر به Supabase متصل‌اند؛ هیچ کلید مدیریتی داخل خروجی منتشرشده وجود ندارد.
+
+```sh
+npx wrangler login
+npm run deploy
+```
+
+نام Worker در `wrangler.jsonc` برابر `habeet` است. می‌توان پوشه `out/` یا ZIP محتویات آن را از داشبورد Workers & Pages هم منتشر کرد.
+
+پس از انتشار، در Supabase → Authentication → URL Configuration، آدرس عمومی اپ را به Site URL و Redirect URLs اضافه کن. برای development، `http://localhost:3000/` و `http://localhost:3000/?recovery=1` را نگه دار. بعد از اتصال دامنه شخصی، آدرس دامنه و مسیر `/?recovery=1` را هم اضافه کن تا تأیید ایمیل و بازیابی رمز به همان اپ برگردند.
+
+کلید عمومی Supabase باید هنگام build تنظیم باشد. تغییر آن نیاز به build و انتشار دوباره دارد.
+
+## محدودیت‌های روشن
+
+زمان از ساعت دستگاه محاسبه می‌شود و تیک خودکار به معنی تأیید واقعی رفتار نیست. ثبت پایبندی توسط خود کاربر انجام می‌شود. در حالت حساب، هنگام قطع اینترنت تغییرات جدید ثبت نمی‌شوند؛ نسخه ذخیره‌شده قابل مشاهده است. اطلاعات مهمان به همان مرورگر و همان دامنه وابسته است؛ قبل از تغییر دامنه، پشتیبان بگیر یا آن را به حساب منتقل کن.
+
+فونت Vazirmatn با مجوز SIL OFL در `app/fonts/OFL.txt` قرار دارد. تصویر گیاه و نشان اپ، SVGهای سبک همین پروژه‌اند.
