@@ -60,6 +60,8 @@ import {
 } from "@/lib/habits";
 import { supabase } from "@/lib/supabase";
 import { AccountForm } from "./account-form";
+import { AccountWelcome } from "./account-welcome";
+import { accountName, type AccountMode } from "@/lib/accounts";
 import { HabitForm, templates, type Template } from "./habit-form";
 import { Brand, Dialog, GrowingPlant, HabitSymbol } from "./ui";
 
@@ -529,6 +531,10 @@ function ProgressView({ habits, now }: { habits: Habit[]; now: number }) {
 
 export function HabeetApp() {
   const store = useHabits();
+  return <HabeetSession key={store.user?.id ?? "guest"} store={store} />;
+}
+
+function HabeetSession({ store }: { store: ReturnType<typeof useHabits> }) {
   const now = useSyncExternalStore(subscribeClock, clockSnapshot, serverClock);
   const online = useSyncExternalStore(
     subscribeOnline,
@@ -542,7 +548,8 @@ export function HabeetApp() {
   } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"restart" | "delete" | null>(null);
-  const [account, setAccount] = useState(false);
+  const [account, setAccount] = useState<AccountMode | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
   const [help, setHelp] = useState(false);
   const [toast, setToast] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(
@@ -567,6 +574,12 @@ export function HabeetApp() {
   function changeView(nextView: View) {
     setView(nextView);
     window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  function closeAccount() {
+    setAccount(null);
+    if (new URLSearchParams(window.location.search).get("recovery") === "1")
+      window.history.replaceState(null, "", "/");
   }
 
   useEffect(() => {
@@ -607,11 +620,11 @@ export function HabeetApp() {
   useEffect(() => {
     if (!supabase) return;
     if (new URLSearchParams(window.location.search).get("recovery") === "1")
-      queueMicrotask(() => setAccount(true));
+      queueMicrotask(() => setAccount("reset"));
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setAccount(true);
+      if (event === "PASSWORD_RECOVERY") setAccount("reset");
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -701,9 +714,29 @@ export function HabeetApp() {
     setInstallPrompt(null);
   }
   async function signOut() {
-    const { error } = await supabase!.auth.signOut();
+    const { error } = await supabase!.auth.signOut({ scope: "local" });
     if (error) setToast("خروج انجام نشد. دوباره تلاش کن.");
-    else setToast("از حساب خارج شدی. اطلاعاتت در حساب محفوظ است.");
+  }
+
+  if (store.cloudEnabled && !store.user && !guestMode) {
+    return (
+      <>
+        <AccountWelcome
+          loading={store.loading}
+          guestCount={store.guestCount}
+          onSignup={() => setAccount("signup")}
+          onLogin={() => setAccount("login")}
+          onGuest={() => setGuestMode(true)}
+        />
+        {account && (
+          <AccountForm
+            key={account}
+            initialMode={account}
+            onClose={closeAccount}
+          />
+        )}
+      </>
+    );
   }
 
   const quote = quotes[now ? dateFromKey(dateKey(now)).getUTCDay() : 0];
@@ -749,14 +782,17 @@ export function HabeetApp() {
           <button
             className="profile-button"
             onClick={() =>
-              store.user ? changeView("settings") : setAccount(true)
+              store.user ? changeView("settings") : setAccount("login")
             }
           >
             <span className="avatar">
               <Heart size={18} />
             </span>
             <span>
-              <strong>{store.user ? "مسیر شخصی من" : "سلام، دوست من"}</strong>
+              <strong>
+                سلام،{" "}
+                <bdi>{store.user ? accountName(store.user) : "دوست من"}</bdi>
+              </strong>
               <small>
                 {store.user ? "حساب متصل است" : "خوش آمدی به مسیر خودت"}
               </small>
@@ -781,7 +817,7 @@ export function HabeetApp() {
           <button
             className="cloud-status"
             onClick={() =>
-              store.user ? changeView("settings") : setAccount(true)
+              store.user ? changeView("settings") : setAccount("login")
             }
           >
             {!online ? (
@@ -796,7 +832,9 @@ export function HabeetApp() {
                 ? "آفلاین"
                 : store.user
                   ? "حساب شخصی"
-                  : "ذخیره روی این دستگاه"}
+                  : store.cloudEnabled
+                    ? "ورود / ساخت حساب"
+                    : "ذخیره روی این دستگاه"}
             </span>
             <span className={`status-dot ${online ? "" : "offline"}`} />
           </button>
@@ -805,9 +843,17 @@ export function HabeetApp() {
           <div className="page-heading">
             <div>
               <span className="eyebrow">
-                {view === "today"
-                  ? "امروز، فرصت تازه توست"
-                  : views.find((item) => item.id === view)?.label}
+                {view === "today" ? (
+                  store.user ? (
+                    <>
+                      <bdi>{accountName(store.user)}</bdi>، امروز فرصت تازه توست
+                    </>
+                  ) : (
+                    "امروز، فرصت تازه توست"
+                  )
+                ) : (
+                  views.find((item) => item.id === view)?.label
+                )}
               </span>
               <h1>{titles[view]}</h1>
               <p>{descriptions[view]}</p>
@@ -1009,6 +1055,9 @@ export function HabeetApp() {
                 </p>
                 {store.user ? (
                   <>
+                    <strong className="account-display-name">
+                      <bdi>{accountName(store.user)}</bdi>، این مسیر برای توست.
+                    </strong>
                     <span className="account-email" dir="ltr">
                       {store.user.email}
                     </span>
@@ -1049,7 +1098,7 @@ export function HabeetApp() {
                 ) : (
                   <button
                     className="button primary"
-                    onClick={() => setAccount(true)}
+                    onClick={() => setAccount("login")}
                     disabled={!store.cloudEnabled}
                   >
                     ورود یا ساخت حساب
@@ -1312,7 +1361,13 @@ export function HabeetApp() {
           )}
         </Dialog>
       )}
-      {account && <AccountForm onClose={() => setAccount(false)} />}
+      {account && (
+        <AccountForm
+          key={account}
+          initialMode={account}
+          onClose={closeAccount}
+        />
+      )}
       {help && (
         <Dialog
           title="هر روز، یک قدم"

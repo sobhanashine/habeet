@@ -122,6 +122,8 @@ export function useHabits() {
 
   useEffect(() => {
     let disposed = false;
+    let initialized = false;
+    let authVersion = 0;
     if (!supabase) {
       queueMicrotask(() => {
         if (!disposed) void load(null);
@@ -131,7 +133,8 @@ export function useHabits() {
       };
     }
     void supabase.auth.getSession().then(({ data, error: authError }) => {
-      if (disposed) return;
+      if (disposed || authVersion !== 0) return;
+      initialized = true;
       void load(data.session?.user ?? null);
       if (authError) setError("ورود قبلی بازیابی نشد. دوباره وارد حساب شو.");
     });
@@ -141,13 +144,36 @@ export function useHabits() {
       if (
         event === "SIGNED_IN" ||
         event === "SIGNED_OUT" ||
-        event === "PASSWORD_RECOVERY"
+        event === "PASSWORD_RECOVERY" ||
+        event === "USER_UPDATED"
       ) {
         const account = session?.user ?? null;
-        if (account?.id !== currentUser.current?.id)
+        const previous = currentUser.current;
+        if (!initialized || account?.id !== previous?.id) {
+          initialized = true;
+          const version = ++authVersion;
+          // Invalidate in-flight reads and writes before another account is rendered.
+          ++loadId.current;
+          currentUser.current = account;
+          currentHabits.current = [];
+          setUser(account);
+          setHabits([]);
+          setLoading(true);
+          setError("");
+          if (previous) {
+            try {
+              localStorage.removeItem(keyFor(previous));
+            } catch {
+              // Storage may be unavailable; the previous account is still removed from memory.
+            }
+          }
           setTimeout(() => {
-            if (!disposed) void load(account);
+            if (!disposed && version === authVersion) void load(account);
           }, 0);
+        } else {
+          currentUser.current = account;
+          setUser(account);
+        }
       }
     });
     return () => {

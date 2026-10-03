@@ -1,20 +1,39 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, Mail, LockKeyhole, Eye, EyeOff } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  LockKeyhole,
+  Eye,
+  EyeOff,
+  UserRound,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import {
+  accountError,
+  newPasswordError,
+  type AccountMode,
+} from "@/lib/accounts";
 import { Dialog } from "./ui";
 
-export function AccountForm({ onClose }: { onClose: () => void }) {
-  const [mode, setMode] = useState<"login" | "signup" | "forgot" | "reset">(
-    () =>
-      window.location.hash.includes("type=recovery") ||
-      new URLSearchParams(window.location.search).get("recovery") === "1"
-        ? "reset"
-        : "login",
+export function AccountForm({
+  onClose,
+  initialMode = "login",
+}: {
+  onClose: () => void;
+  initialMode?: AccountMode;
+}) {
+  const [mode, setMode] = useState<AccountMode>(() =>
+    window.location.hash.includes("type=recovery") ||
+    new URLSearchParams(window.location.search).get("recovery") === "1"
+      ? "reset"
+      : initialMode,
   );
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,6 +43,13 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
     event.preventDefault();
     setError("");
     setMessage("");
+    if (mode === "signup" || mode === "reset") {
+      const validation = newPasswordError(password, confirmation);
+      if (validation) {
+        setError(validation);
+        return;
+      }
+    }
     if (!supabase) {
       setError(
         "اتصال حساب هنوز آماده نیست. می‌توانی روی همین دستگاه شروع کنی.",
@@ -43,13 +69,16 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
         const { data, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { display_name: name.trim() },
+          },
         });
         if (authError) throw authError;
         if (data.session) onClose();
         else
           setMessage(
-            "لینک تأیید به ایمیلت فرستاده شد. ایمیل را باز کن و روی لینک بزن، سپس وارد شو.",
+            "اگر این ایمیل قابل ثبت باشد، لینک تأیید برایش فرستاده می‌شود. ایمیل را باز کن و بعد از تأیید وارد شو. اگر قبلاً حساب داری، از بخش ورود ادامه بده.",
           );
       } else if (mode === "forgot") {
         const { error: authError } = await supabase.auth.resetPasswordForEmail(
@@ -69,18 +98,7 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
         onClose();
       }
     } catch (cause) {
-      const code =
-        cause && typeof cause === "object" && "code" in cause ? cause.code : "";
-      setError(
-        code === "invalid_credentials"
-          ? "ایمیل یا رمز عبور درست نیست."
-          : code === "email_not_confirmed"
-            ? "ابتدا ایمیلت را با لینک تأیید کن."
-            : code === "over_email_send_rate_limit" ||
-                code === "over_request_rate_limit"
-              ? "تعداد درخواست‌ها زیاد شده. چند دقیقه بعد دوباره تلاش کن."
-              : "درخواست انجام نشد. اتصال و اطلاعات را بررسی کن و دوباره تلاش کن.",
-      );
+      setError(accountError(cause));
     } finally {
       setBusy(false);
     }
@@ -103,9 +121,13 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
           <div className="auth-tabs">
             <button
               type="button"
+              disabled={busy}
+              aria-pressed={mode === "login"}
               className={mode === "login" ? "selected" : ""}
               onClick={() => {
                 setMode("login");
+                setPassword("");
+                setConfirmation("");
                 setError("");
                 setMessage("");
               }}
@@ -114,9 +136,13 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="button"
+              disabled={busy}
+              aria-pressed={mode === "signup"}
               className={mode === "signup" ? "selected" : ""}
               onClick={() => {
                 setMode("signup");
+                setPassword("");
+                setConfirmation("");
                 setError("");
                 setMessage("");
               }}
@@ -124,6 +150,24 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
               ساخت حساب
             </button>
           </div>
+        )}
+        {mode === "signup" && (
+          <label className="field">
+            نامی که دوست داری صدایت کنیم{" "}
+            <small className="muted">اختیاری</small>
+            <div className="input-with-icon">
+              <UserRound size={18} />
+              <input
+                type="text"
+                autoComplete="nickname"
+                maxLength={40}
+                placeholder="مثلاً سارا"
+                disabled={busy}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </div>
+          </label>
         )}
         {mode !== "reset" && (
           <label className="field">
@@ -134,6 +178,10 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
                 required
                 type="email"
                 autoComplete="email"
+                disabled={busy}
+                autoCapitalize="none"
+                spellCheck={false}
+                data-autofocus
                 dir="ltr"
                 placeholder="you@example.com"
                 value={email}
@@ -151,6 +199,7 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
                 required
                 minLength={mode === "login" ? 1 : 8}
                 maxLength={128}
+                disabled={busy}
                 type={show ? "text" : "password"}
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
@@ -168,6 +217,26 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
               >
                 {show ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
+            </div>
+          </label>
+        )}
+        {(mode === "signup" || mode === "reset") && (
+          <label className="field">
+            تکرار رمز عبور
+            <div className="input-with-icon">
+              <LockKeyhole size={18} />
+              <input
+                required
+                minLength={8}
+                maxLength={128}
+                disabled={busy}
+                type={show ? "text" : "password"}
+                autoComplete="new-password"
+                dir="ltr"
+                placeholder="همان رمز را دوباره بنویس"
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+              />
             </div>
           </label>
         )}
@@ -196,10 +265,14 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
         {mode === "login" && (
           <button
             type="button"
+            disabled={busy}
             className="text-button"
             onClick={() => {
               setMode("forgot");
               setError("");
+              setPassword("");
+              setConfirmation("");
+              setMessage("");
             }}
           >
             رمز عبورم را فراموش کرده‌ام
@@ -208,13 +281,31 @@ export function AccountForm({ onClose }: { onClose: () => void }) {
         {mode === "forgot" && (
           <button
             type="button"
+            disabled={busy}
             className="text-button"
             onClick={() => {
               setMode("login");
               setError("");
+              setMessage("");
             }}
           >
             بازگشت به ورود
+          </button>
+        )}
+        {mode === "reset" && error && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy}
+            onClick={() => {
+              setMode("forgot");
+              setError("");
+              setMessage("");
+              setPassword("");
+              setConfirmation("");
+            }}
+          >
+            درخواست لینک بازیابی تازه
           </button>
         )}
         <p className="form-footnote">

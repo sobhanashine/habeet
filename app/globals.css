@@ -107,6 +107,151 @@ svg {
 .not-found-page a {
   text-decoration: none;
 }
+.welcome-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 44px 20px;
+}
+.welcome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.welcome-header > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.welcome-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 70px;
+  align-items: center;
+  flex: 1;
+  padding: 50px 0;
+}
+.welcome-copy h1 {
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.5;
+  letter-spacing: -2px;
+  margin: 14px 0 18px;
+}
+.welcome-copy > p {
+  max-width: 410px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 2.1;
+}
+.welcome-actions {
+  display: flex;
+  gap: 10px;
+  margin: 28px 0 12px;
+}
+.welcome-actions .button {
+  padding: 12px 24px;
+  font-size: 13px;
+}
+.welcome-account-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.welcome-guest {
+  margin-top: 25px;
+  min-height: 44px;
+  font-size: 11px;
+}
+.welcome-copy .welcome-note {
+  font-size: 10px;
+  max-width: 350px;
+}
+.welcome-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #e0e8d9;
+  background: #edf2e5;
+  border-radius: 28px;
+  padding: 38px 25px 28px;
+  min-height: 425px;
+}
+.welcome-visual .growing-plant {
+  position: static;
+  width: 255px;
+  height: 210px;
+  margin-bottom: 12px;
+}
+.welcome-visual h2 {
+  font-size: 23px;
+  line-height: 1.9;
+}
+.welcome-visual p {
+  margin: 9px 0 27px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.welcome-visual > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: #5e765c;
+}
+.welcome-footer {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+}
+.account-display-name {
+  font-size: 13px;
+  margin: 15px 0 5px;
+}
+@media (max-width: 760px) {
+  .welcome-page {
+    padding: 22px 24px;
+  }
+  .welcome-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 38px 0 28px;
+  }
+  .welcome-copy h1 {
+    font-size: 40px;
+    letter-spacing: -1px;
+    margin-top: 12px;
+  }
+  .welcome-copy > p {
+    font-size: 12px;
+  }
+  .welcome-actions .button {
+    flex: 1;
+    font-size: 12px;
+    padding: 12px;
+  }
+  .welcome-visual {
+    min-height: unset;
+    padding: 14px 20px 23px;
+    border-radius: 20px;
+  }
+  .welcome-visual .growing-plant {
+    width: 160px;
+    height: 140px;
+    margin-bottom: 0;
+  }
+  .welcome-visual h2 {
+    font-size: 18px;
+  }
+  .welcome-visual p {
+    margin-bottom: 17px;
+    font-size: 11px;
+  }
+}
 .skip-link {
   position: fixed;
   top: -60px;

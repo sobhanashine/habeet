@@ -16,24 +16,36 @@ const options = {
 const admin = createClient(url, serviceKey, options);
 const clientA = createClient(url, key, options);
 const clientB = createClient(url, key, options);
+const secondDevice = createClient(url, key, options);
 const anonymous = createClient(url, key, options);
 const created: string[] = [];
 
 try {
-  for (const client of [clientA, clientB]) {
+  let firstCredentials: { email: string; password: string } | null = null;
+  for (const [index, client] of [clientA, clientB].entries()) {
     const email = `habeet.qa.${crypto.randomUUID()}@example.invalid`;
     const password = crypto.randomUUID() + "aA1!";
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      user_metadata: { display_name: `کاربر آزمایشی ${index + 1}` },
     });
     assert.equal(error, null, "Temporary QA user creation failed");
     assert.ok(data.user);
     created.push(data.user.id);
     const login = await client.auth.signInWithPassword({ email, password });
     assert.equal(login.error, null, "Password login failed");
+    assert.equal(
+      login.data.user?.user_metadata.display_name,
+      `کاربر آزمایشی ${index + 1}`,
+    );
+    if (index === 0) firstCredentials = { email, password };
   }
+  assert.ok(firstCredentials);
+  const deviceLogin =
+    await secondDevice.auth.signInWithPassword(firstCredentials);
+  assert.equal(deviceLogin.error, null, "Second-device login failed");
   const habitId = crypto.randomUUID();
   const row = {
     id: habitId,
@@ -111,8 +123,23 @@ try {
     .select("id")
     .is("deleted_at", null);
   assert.equal(active.data?.length, 0);
+  const signedOut = await clientA.auth.signOut({ scope: "local" });
+  assert.equal(signedOut.error, null);
+  const localSession = await clientA.auth.getSession();
+  assert.equal(
+    localSession.data.session,
+    null,
+    "The signed-out device retained its session",
+  );
+  const otherDevice = await secondDevice.auth.refreshSession();
+  assert.equal(
+    otherDevice.error,
+    null,
+    "Local sign-out disconnected the other device",
+  );
+  assert.equal(otherDevice.data.user?.id, created[0]);
   console.log(
-    "Live Supabase verified: login, create, read, owner isolation, blocked anonymous access, revision conflicts, backup IDs, soft deletion.",
+    "Live Supabase verified: named accounts, login on two devices, create, read, owner isolation, blocked anonymous access, revision conflicts, backup IDs, soft deletion, local sign-out preserving the other device.",
   );
 } finally {
   for (const id of created) {
